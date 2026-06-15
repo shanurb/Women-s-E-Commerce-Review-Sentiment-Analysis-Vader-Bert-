@@ -1,10 +1,10 @@
-# Customer Sentiment & NLP System
+# Customer Sentiment and NLP System
 
-> *Deciphering what customers mean — not just what they rate.*
+> *Deciphering what customers mean, not just what they rate.*
 
 An end-to-end NLP pipeline that analyses 22,000+ women's clothing reviews using dual sentiment models (VADER + DistilBERT), stores and queries data in PostgreSQL, and surfaces business insights through an interactive Power BI dashboard.
 
-**Key finding:** 18.7% of highly-rated (4–5 star) products contained negative language in review text, a hidden dissatisfaction signal invisible to star-rating analysis alone.
+**Key finding:** 14.41% of total reviews contain hidden dissatisfaction where customers give highly-rated (4–5 star) reviews but express negative sentiment in their actual review text.
 
 ---
 
@@ -12,9 +12,9 @@ An end-to-end NLP pipeline that analyses 22,000+ women's clothing reviews using 
 
 Star ratings lie.
 
-A customer gives 4 stars but writes *"love the style but it runs two sizes small and the fabric feels cheap."* The business sees a happy customer. The NLP model sees a sizing complaint and a quality concern.
+A customer clicks 4 stars but writes *"love the style but it runs two sizes small and the fabric feels cheap."* The business sees a happy customer. The NLP model sees a sizing complaint and a quality concern.
 
-This project was built to close that gap to extract what customers *actually* feel from the words they use, not the number they click.
+This project closes that gap by extracting what customers *actually* feel from the words they use, not just the number they click.
 
 ---
 
@@ -32,62 +32,17 @@ This project was built to close that gap to extract what customers *actually* fe
 ---
 
 ## Pipeline overview
-
-```
-Raw CSV (Kaggle)
-      │
-      ▼
-PostgreSQL ──── SQL views & analytical queries
-      │
-      ▼
-Python / Jupyter
-  ├── Text cleaning & preprocessing
-  ├── VADER sentiment scoring (rule-based)
-  ├── DistilBERT sentiment scoring (transformer)
-  ├── Topic tagging (sizing, fabric, delivery, etc.)
-  └── Hidden dissatisfaction flagging
-      │
-      ▼
-Results written back to PostgreSQL
-      │
-      ▼
-CSV export ──── Power BI Dashboard (3 pages)
-```
-
+Raw CSV (Kaggle)│▼PostgreSQL ──── SQL views & analytical queries│▼Python / Jupyter├── Text cleaning & preprocessing├── VADER sentiment scoring (rule-based)├── DistilBERT sentiment scoring (transformer)├── Multi-label topic tagging (one-hot encoding)└── Hidden dissatisfaction flagging│▼Results written back to PostgreSQL│▼Clean Views ──── Power BI Dashboard (3 pages)
 ---
 
-## Project structure
-
-```
-clothing_sentiment/
-│
-├── data/
-│   ├── womens_clothing_reviews.csv       # raw dataset
-│   ├── reviews_clean.csv                 # after cleaning
-│   ├── sentiment_results.csv             # scored output
-│   ├── topic_summary.csv                 # aggregated by topic
-│   ├── hidden_dissatisfaction.csv        # mismatch analysis
-│   ├── dept_summary.csv                  # by department
-│   └── age_summary.csv                   # by age group
-│
-├── notebooks/
-│   └── sentiment_analysis.ipynb          # full pipeline notebook
-│
-├── sql/
-│   └── setup.sql                         # table creation + views
-│
-├── .env.example                          # env variable template
-├── requirements.txt
-└── README.md
-```
-
+## Project structure clothing_sentiment/│├── data/│   ├── womens_clothing_reviews.csv       # raw dataset│   └── sentiment_results.csv             # scored output matrix│├── notebooks/│   └── sentiment_analysis.ipynb          # full pipeline notebook│├── sql/│   └── setup.sql                         # table creation + analytical views│├── .env.example                          # env variable template├── requirements.txt└── README.md
 ---
 
 ## Quickstart
 
 **1. Clone the repo**
 ```bash
-git clone https://github.com/yourusername/clothing-sentiment-nlp.git
+git clone https://github.com
 cd clothing-sentiment-nlp
 ```
 
@@ -115,9 +70,9 @@ cp .env.example .env
 
 **5. Set up PostgreSQL**
 
-Run `sql/setup.sql` in pgAdmin or psql to create the database, tables, and views.
+Run `sql/setup.sql` in pgAdmin or psql to initialize the schemas and optimized aggregation views.
 
-Then load the dataset:
+Then load the raw dataset:
 ```sql
 COPY reviews_raw (clothing_id, age, review_title, review_text, rating,
                   recommended, positive_feedback, division_name,
@@ -128,18 +83,18 @@ DELIMITER ',' CSV HEADER;
 
 **6. Run the notebook**
 
-Open `notebooks/sentiment_analysis.ipynb` in VS Code and run all cells top to bottom.
+Open `notebooks/sentiment_analysis.ipynb` in VS Code and run all cells top to bottom to execute the models.
 
-**7. Load into Power BI**
+**7. Open the Power BI Dashboard**
 
-Import the CSV files from `/data/` into Power BI and follow the dashboard layout described below.
+Connect your Power BI Desktop client directly to your PostgreSQL database instances or import the analytical view exports to view the interactive dashboard templates.
 
 ---
 
 ## How the models work
 
-### VADER (Valence Aware Dictionary and sEntiment Reasoner)
-Rule-based model optimised for social and review text. Fast, interpretable, no training required. Compound score ranges from -1 (most negative) to +1 (most positive).
+### VADER (Valence Aware Dictionary and sEntimer Reasoner)
+Rule-based model optimized for social and review text. Fast, interpretable, and highly effective for standard sentiment checks. Compound score ranges from -1 (most negative) to +1 (most positive).
 
 ```python
 score = analyzer.polarity_scores(text)['compound']
@@ -149,23 +104,23 @@ score = analyzer.polarity_scores(text)['compound']
 ```
 
 ### DistilBERT
-A lightweight version of BERT fine-tuned on SST-2 (Stanford Sentiment Treebank). Understands context and nuance that rule-based models miss — sarcasm, hedging, mixed sentiment within a single sentence.
+A lightweight, high-performance transformer model fine-tuned on SST-2 (Stanford Sentiment Treebank). Understands context and structural nuance that rule-based dictionary models miss such as sarcasm, hedging, and mixed sentiment within a single text block.
 
 ```python
 model = "distilbert-base-uncased-finetuned-sst-2-english"
 ```
 
-Both models run on every review. Where they disagree, DistilBERT is used as the primary label (more context-aware), but the disagreement itself is flagged as a signal worth investigating.
+Both models execute across every review row. To handle multi-topic records cleanly without inflating row counts in Power BI, topics are tracked using explicit binary flags (One-Hot Encoding matrix columns).
 
 ---
 
-## Topic tagging
+## Topic tagging matrix
 
-Every review is tagged with a business topic based on keyword matching:
+Reviews are parsed and categorized across target operations using regex keyword matching:
 
 | Topic | Keywords (sample) |
 |---|---|
-| Sizing & fit | size, sizing, fit, tight, loose, runs, petite |
+| Sizing & fit | size, sizing, fit, tight, loose, runs, petite, small |
 | Fabric & quality | fabric, material, quality, thin, stitching, cheap |
 | Style & look | style, cute, beautiful, flattering, design, color |
 | Comfort | comfortable, itchy, cozy, warm, breathable |
@@ -177,85 +132,46 @@ Every review is tagged with a business topic based on keyword matching:
 
 ## Key findings
 
-### Hidden dissatisfaction
-**18.7% of 4–5 star reviews contained negative language** when analysed by DistilBERT.
+### Global distribution metrics
+The total processed review footprint contains **22,587 valid customer records**:
+*   **Total Positive Sentiment**: 67.59% (15.27K reviews)
+*   **Total Negative Sentiment**: 32.41% (7.32K reviews)
 
-Of those:
+### Hidden dissatisfaction anomalies
+Among highly-rated items (4–5 stars), **14.41%** exhibited hidden complaints where actual review language was structurally negative. When unpacking this specific anomaly segment, topic distribution reveals clear targets:
 
-| Topic | Share of hidden complaints |
+| Target Operational Topic | Share of Dissatisfaction Subgroup |
 |---|---|
-| Sizing & fit | 74% |
-| Fabric & quality | 42% |
-| Delivery | 31% |
-| Price & value | 18% |
-| Customer service | 12% |
+| Sizing & fit | 74.0% |
+| Fabric & quality | 42.0% |
+| Delivery & packaging | 31.0% |
+| Price & value | 18.0% |
+| Customer service | 12.0% |
 
-### Age group insight
-Customers over 46 leave more positive reviews overall — younger customers (under 30) are significantly more critical about sizing in particular.
-
-### Model agreement
-VADER and DistilBERT agree on **~81%** of reviews. The 19% disagreement rate is concentrated in 3-star reviews and reviews with mixed sentiment — exactly where nuance matters most.
+*Note: Percentages do not sum to 100% because individual reviews can contain multiple topic tags.*
 
 ---
 
-## Power BI dashboard
+## Power BI dashboard architecture
 
-Three-page dashboard built on the exported CSVs:
+The project features an interactive, three-page dashboard built directly on PostgreSQL views:
 
-**Page 1 — Overview**
-KPI cards (total reviews, % positive, % negative, % hidden dissatisfaction) · Sentiment donut chart · Negative % by topic bar chart · Monthly sentiment trend line
-
-**Page 2 — Deep dive**
-Star rating vs BERT sentiment comparison · Sentiment by age group · Topic × sentiment matrix with conditional formatting · Slicers for department, rating, age group
-
-**Page 3 — So what**
-Headline insight card · Hidden dissatisfaction breakdown by topic · Key finding summary · Business recommendation
+*   **Page 1 — Overview**: Displays core KPI metrics like Total reviews, % Positive, % Negative, and % Hidden Dissatisfaction. Features an explicit sentiment donut chart mapping alongside a global negative frequency breakdown chart.
+*   **Page 2 — Deep Dive**: Cross-analyzes rating matrices, age bracket sentiment distributions, and a complete multi-topic sentiment matrix with conditional formatting toggles.
+*   **Page 3 — Summary**: Highlights operational risk areas, presents specific subgroup findings, and summarizes strategic development recommendations.
 
 ---
 
-## Business recommendation
+## Strategic recommendations
 
-> Sizing and fit is the single biggest driver of hidden dissatisfaction — accounting for 74% of negative language in otherwise high-rated reviews.
->
-> Style and fabric quality scores are strong. The product is not the problem. Customers cannot confidently predict how a garment will fit before buying.
->
-> **Recommended actions:**
-> - Introduce detailed size guides with real customer measurements per product
-> - Add a "does this run true to size?" poll on product pages
-> - Flag high-dissatisfaction size ranges for quality review
->
-> Fixing size confidence is expected to reduce return rates and convert hesitant browsers into buyers.
-
----
-
-## Requirements
-
-```
-pandas
-psycopg2-binary
-sqlalchemy
-python-dotenv
-vaderSentiment
-transformers
-torch
-scikit-learn
-matplotlib
-seaborn
-ipykernel
-```
-
-Install all with:
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## Dataset
-
-**Women's Clothing E-Commerce Reviews** — publicly available on [Kaggle](https://www.kaggle.com/datasets/nicapotato/womens-ecommerce-clothing-reviews).
-
-22,641 reviews with rating, review text, department, clothing category, age, and recommendation flag. No personal identifiers.
+> Sizing and fit inconsistencies represent the single largest driver of hidden customer dissatisfaction, appearing in 74% of negative text blocks in high-rated reviews.
+> 
+> Product design and fabric quality scores remain fundamentally strong across categories. The physical items are well-received, but customers struggle to predict proper garment fit before ordering.
+> 
+> **Recommended Actions:**
+> *   Deploy interactive sizing calculators featuring real customer dimensions on high-volume item pages.
+> *   Integrate community "True to Size" feedback voting gauges above purchasing selectors.
+> *   Flag high-volume return items showing persistent size-tagging mismatches for quality control audits.
 
 ---
 
